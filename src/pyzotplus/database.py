@@ -7,10 +7,12 @@ library :mod:`sqlite3` module and uses FTS5 for full-text search.
 
 from __future__ import annotations
 
+from datetime import datetime
 import sqlite3
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-SCHEMA_VERSION = 1
+# Updated schema version to include sync metadata
+SCHEMA_VERSION = 2
 
 
 def init_db(path: str) -> sqlite3.Connection:
@@ -96,7 +98,22 @@ def _create_schema_v1(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS = {1: _create_schema_v1}
+def _upgrade_schema_v2(conn: sqlite3.Connection) -> None:
+    """Add sync metadata columns and tables."""
+
+    conn.execute("ALTER TABLE items ADD COLUMN version INTEGER DEFAULT 0")
+    conn.execute("ALTER TABLE items ADD COLUMN synced_at TEXT")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sync_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+        """
+    )
+
+
+MIGRATIONS = {1: _create_schema_v1, 2: _upgrade_schema_v2}
 
 
 # ---------------------------------------------------------------------------
@@ -111,12 +128,17 @@ def add_item(
     title: str,
     data: str,
     collection_id: Optional[int] = None,
+    version: int = 0,
+    synced_at: Optional[str] = None,
 ) -> int:
     """Insert a new item and return its row id."""
 
     cur = conn.execute(
-        "INSERT INTO items(key, title, data, collection_id) VALUES (?, ?, ?, ?)",
-        (key, title, data, collection_id),
+        """
+        INSERT INTO items(key, title, data, collection_id, version, synced_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (key, title, data, collection_id, version, synced_at),
     )
     conn.commit()
     return int(cur.lastrowid)
@@ -270,6 +292,32 @@ def delete_fulltext(conn: sqlite3.Connection, item_id: int) -> None:
     conn.commit()
 
 
+# Sync metadata -------------------------------------------------------------
+
+def get_last_sync_version(conn: sqlite3.Connection) -> int:
+    """Return the last synced library version."""
+
+    row = conn.execute(
+        "SELECT value FROM sync_meta WHERE key = 'library_version'"
+    ).fetchone()
+    return int(row["value"]) if row else 0
+
+
+def update_last_sync(conn: sqlite3.Connection, version: int) -> None:
+    """Update sync metadata with *version* and current timestamp."""
+
+    now = datetime.utcnow().isoformat()
+    conn.execute(
+        "INSERT OR REPLACE INTO sync_meta(key, value) VALUES ('library_version', ?)",
+        (str(version),),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO sync_meta(key, value) VALUES ('last_sync', ?)",
+        (now,),
+    )
+    conn.commit()
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "init_db",
@@ -295,4 +343,6 @@ __all__ = [
     "add_fulltext",
     "search_fulltext",
     "delete_fulltext",
+    "get_last_sync_version",
+    "update_last_sync",
 ]
