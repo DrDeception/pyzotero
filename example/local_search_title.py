@@ -1,4 +1,4 @@
-from pyzotero import zotero
+from pyzotplus import zotero
 
 def search_by_title(title_query):
     """

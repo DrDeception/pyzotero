@@ -1,4 +1,4 @@
-from pyzotero import zotero
+from pyzotplus import zotero
 from pathlib import Path
 
 def copy_specific_pdf(item_id, output_dir, new_name=None):
