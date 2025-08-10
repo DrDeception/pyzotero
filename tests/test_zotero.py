@@ -1,7 +1,7 @@
 """
-Tests for the Pyzotero module
+Tests for the Pyzotplus module
 
-This file is part of Pyzotero.
+This file is part of Pyzotplus.
 """
 # ruff: noqa: N802
 
@@ -20,15 +20,15 @@ from dateutil import parser
 from httpretty import HTTPretty
 
 try:
-    from pyzotero.pyzotero import zotero as z
+    from pyzotplus.pyzotplus import zotero as z
 except ModuleNotFoundError:
-    from pyzotero import zotero as z
+    from pyzotplus import zotero as z
 
 from urllib.parse import urlencode
 
 
 class ZoteroTests(unittest.TestCase):
-    """Tests for pyzotero"""
+    """Tests for pyzotplus"""
 
     cwd = os.path.dirname(os.path.realpath(__file__))
 
@@ -538,7 +538,7 @@ class ZoteroTests(unittest.TestCase):
 
     @httpretty.activate
     def testNoApiKey(self):
-        """Ensure that pyzotero works when api_key is not set"""
+        """Ensure that pyzotplus works when api_key is not set"""
         zot = z.Zotero("myuserID", "user")
         HTTPretty.register_uri(
             HTTPretty.GET,

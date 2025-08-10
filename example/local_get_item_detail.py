@@ -1,4 +1,4 @@
-from pyzotero import zotero
+from pyzotplus import zotero
 from pprint import pprint
 
 def get_item_detail(item_id):

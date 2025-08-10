@@ -1,4 +1,4 @@
-from pyzotero import zotero
+from pyzotplus import zotero
 zot = zotero.Zotero(library_id='000000', library_type = 'user', local=True) # local=True for read access to local Zotero
 items = zot.top(limit=5)
 # we've retrieved the latest five top-level items in our library
