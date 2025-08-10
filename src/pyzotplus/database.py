@@ -12,7 +12,7 @@ import sqlite3
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 # Updated schema version to include sync metadata
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def init_db(path: str) -> sqlite3.Connection:
@@ -113,7 +113,21 @@ def _upgrade_schema_v2(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS = {1: _create_schema_v1, 2: _upgrade_schema_v2}
+def _upgrade_schema_v3(conn: sqlite3.Connection) -> None:
+    """Add table for reusable note templates."""
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS note_templates (
+            id INTEGER PRIMARY KEY,
+            name TEXT UNIQUE,
+            content TEXT
+        );
+        """
+    )
+
+
+MIGRATIONS = {1: _create_schema_v1, 2: _upgrade_schema_v2, 3: _upgrade_schema_v3}
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +289,38 @@ def delete_note(conn: sqlite3.Connection, note_id: int) -> None:
     conn.commit()
 
 
+# Note templates -----------------------------------------------------------
+
+def add_note_template(conn: sqlite3.Connection, name: str, content: str) -> int:
+    cur = conn.execute(
+        "INSERT INTO note_templates(name, content) VALUES (?, ?)",
+        (name, content),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def get_note_template(conn: sqlite3.Connection, name: str) -> Optional[str]:
+    row = conn.execute(
+        "SELECT content FROM note_templates WHERE name = ?",
+        (name,),
+    ).fetchone()
+    return row["content"] if row else None
+
+
+def update_note_template(conn: sqlite3.Connection, name: str, content: str) -> None:
+    conn.execute(
+        "UPDATE note_templates SET content = ? WHERE name = ?",
+        (content, name),
+    )
+    conn.commit()
+
+
+def delete_note_template(conn: sqlite3.Connection, name: str) -> None:
+    conn.execute("DELETE FROM note_templates WHERE name = ?", (name,))
+    conn.commit()
+
+
 # Full-text search ---------------------------------------------------------
 
 def add_fulltext(conn: sqlite3.Connection, item_id: int, content: str) -> None:
@@ -340,6 +386,10 @@ __all__ = [
     "get_note",
     "update_note",
     "delete_note",
+    "add_note_template",
+    "get_note_template",
+    "update_note_template",
+    "delete_note_template",
     "add_fulltext",
     "search_fulltext",
     "delete_fulltext",
