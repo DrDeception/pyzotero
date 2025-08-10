@@ -1022,6 +1022,17 @@ class Zotero:
         retrieved = self._retrieve_data(query_string)
         return self._cache(retrieved, template_name)
 
+    def note_template(self):
+        """Return a skeleton template for a Zotero note."""
+
+        return {
+            "itemType": "note",
+            "note": "{content}",
+            "tags": [],
+            "relations": {},
+            "collections": [],
+        }
+
     def _attachment_template(self, attachment_type):
         """Return a new attachment template of the required type:
         imported_file

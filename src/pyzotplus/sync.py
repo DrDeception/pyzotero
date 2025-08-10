@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from . import database
 from .zotero import Zotero
@@ -98,5 +98,50 @@ def push_changes(conn: sqlite3.Connection, zot: Zotero) -> None:
     database.update_last_sync(conn, new_version)
 
 
-__all__ = ["pull_changes", "push_changes"]
+def write_note(
+    conn: sqlite3.Connection,
+    zot: Zotero,
+    parent_key: str,
+    template_name: str,
+    **data: str,
+) -> Optional[str]:
+    """Create a note from a stored template and sync it.
+
+    The note content is generated from a named template stored in the
+    database.  The resulting note is uploaded to Zotero and stored locally.
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection.
+    zot:
+        :class:`Zotero` client instance.
+    parent_key:
+        Zotero key of the item the note should be attached to.
+    template_name:
+        Name of the template stored in the database.
+    **data:
+        Values used to fill the template placeholders.
+
+    Returns
+    -------
+    Optional[str]
+        The newly created note key, if creation was successful.
+    """
+
+    content_tpl = database.get_note_template(conn, template_name)
+    note = zot.note_template()
+    template = content_tpl or note["note"]
+    note["note"] = template.format(**data)
+    resp = zot.create_items([note], parentid=parent_key)
+    row = conn.execute(
+        "SELECT id FROM items WHERE key = ?",
+        (parent_key,),
+    ).fetchone()
+    if row:
+        database.add_note(conn, row["id"], note["note"])
+    return next(iter(resp.get("success", {}).values()), None)
+
+
+__all__ = ["pull_changes", "push_changes", "write_note"]
 

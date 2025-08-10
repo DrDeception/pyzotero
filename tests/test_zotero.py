@@ -24,6 +24,7 @@ try:
 except ModuleNotFoundError:
     from pyzotplus import zotero as z
 
+from pyzotplus import database, sync
 from urllib.parse import urlencode
 
 
@@ -1542,6 +1543,50 @@ class ZoteroTests(unittest.TestCase):
         # Check that the correct parameters were sent
         request = httpretty.last_request()
         self.assertEqual(request.querystring.get("since"), ["5"])
+
+    def test_note_template(self):
+        """Ensure note_template returns a skeleton with placeholders."""
+        zot = z.Zotero("myuserID", "user", "myuserkey")
+        tmpl = zot.note_template()
+        self.assertEqual(tmpl["itemType"], "note")
+        self.assertEqual(tmpl["note"], "{content}")
+
+    def test_note_template_storage(self):
+        """CRUD operations for note templates."""
+        conn = database.init_db(":memory:")
+        database.add_note_template(conn, "greet", "Hello {name}")
+        self.assertEqual(database.get_note_template(conn, "greet"), "Hello {name}")
+        database.update_note_template(conn, "greet", "Hi {name}")
+        self.assertEqual(database.get_note_template(conn, "greet"), "Hi {name}")
+        database.delete_note_template(conn, "greet")
+        self.assertIsNone(database.get_note_template(conn, "greet"))
+
+    @httpretty.activate
+    def test_write_note_helper(self):
+        """write_note should fill the template, sync, and store locally."""
+        zot = z.Zotero("myuserID", "user", "myuserkey")
+        conn = database.init_db(":memory:")
+        database.add_item(conn, "ABCD1234", "Title", "{}")
+        database.add_note_template(conn, "tmpl", "Hi {name}")
+
+        HTTPretty.register_uri(
+            HTTPretty.POST,
+            "https://api.zotero.org/users/myuserID/items",
+            body="{\n    \"failed\": {},\n    \"unchanged\": {},\n    \"success\": {\n        \"0\": \"ABC123\"\n    }\n}",
+            content_type="application/json",
+            status=200,
+            adding_headers={"last-modified-version": "1"},
+        )
+        HTTPretty.register_uri(
+            HTTPretty.PATCH,
+            "https://api.zotero.org/users/myuserID/items/ABC123",
+            status=204,
+        )
+
+        note_key = sync.write_note(conn, zot, "ABCD1234", "tmpl", name="Bob")
+        self.assertEqual(note_key, "ABC123")
+        row = conn.execute("SELECT content FROM notes").fetchone()
+        self.assertEqual(row["content"], "Hi Bob")
 
     @httpretty.activate
     def test_last_modified_version(self):
