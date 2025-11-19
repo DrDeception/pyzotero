@@ -28,6 +28,29 @@ for item in items:
 
 Full documentation of available Pyzotero methods, code examples, and sample output is available on [Read The Docs][3].
 
+## Lab Identifier Utilities
+
+Pyzotero ships with helpers for allocating sequential nine digit identifiers to
+items in a library. These identifiers make it possible to keep a stable key for
+Zotero entries and match them against external databases maintained in a
+laboratory setting.
+
+The :mod:`pyzotero.lab_id` module exposes three functions:
+
+* ``extract_lab_id`` — return an identifier stored in an item's ``extra`` field
+* ``set_lab_id`` — embed a given identifier into the ``extra`` field
+* ``ensure_lab_ids`` — assign new identifiers to items lacking one and record
+  the allocation in a local JSON registry
+
+An example script, ``example/local_assign_lab_ids.py``, demonstrates how to run
+through a local Zotero database and ensure every item has an identifier. The
+script prints a report summarizing newly allocated identifiers and any items
+whose existing identifiers conflict with the registry.
+
+Identifiers are stored in the ``extra`` field in the form ``LAB_ID: 000000123``.
+The registry file keeps a mapping of identifier to Zotero key so that future
+runs can detect mismatches or previously assigned values.
+
 # Installation
 
 * Using [pip][10]: `pip install pyzotero` (it's available as a wheel, and is tested on Python 3.7 and up)
